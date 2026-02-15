@@ -4,16 +4,18 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
 use Laravel\Fortify\TwoFactorAuthenticatable;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, TwoFactorAuthenticatable;
+    use HasFactory, HasRoles, Notifiable, TwoFactorAuthenticatable;
+
+    protected string $guard_name = 'web';
 
     /**
      * The attributes that are mass assignable.
@@ -49,46 +51,6 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
-    }
-
-    /**
-     * Get roles assigned to the user.
-     */
-    public function roles(): BelongsToMany
-    {
-        return $this->belongsToMany(Role::class);
-    }
-
-    /**
-     * Determine if the user has a role slug.
-     */
-    public function hasRole(string $roleSlug): bool
-    {
-        if ($this->relationLoaded('roles')) {
-            return $this->roles->contains(fn (Role $role): bool => $role->slug === $roleSlug);
-        }
-
-        return $this->roles()->where('slug', $roleSlug)->exists();
-    }
-
-    /**
-     * Determine if the user has a permission slug through assigned roles.
-     */
-    public function hasPermission(string $permissionSlug): bool
-    {
-        if ($this->relationLoaded('roles')) {
-            return $this->roles->contains(function (Role $role) use ($permissionSlug): bool {
-                if (! $role->relationLoaded('permissions')) {
-                    return $role->permissions()->where('slug', $permissionSlug)->exists();
-                }
-
-                return $role->permissions->contains(fn (Permission $permission): bool => $permission->slug === $permissionSlug);
-            });
-        }
-
-        return $this->roles()
-            ->whereHas('permissions', fn ($query) => $query->where('slug', $permissionSlug))
-            ->exists();
     }
 
     /**

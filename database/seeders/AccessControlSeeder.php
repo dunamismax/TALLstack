@@ -6,6 +6,7 @@ use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Spatie\Permission\PermissionRegistrar;
 
 class AccessControlSeeder extends Seeder
 {
@@ -14,24 +15,26 @@ class AccessControlSeeder extends Seeder
      */
     public function run(): void
     {
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+
         $permissionPayloads = [
             [
-                'name' => 'View Dashboard',
+                'name' => 'view-dashboard',
                 'slug' => 'view-dashboard',
                 'description' => 'View admin dashboard analytics and summaries.',
             ],
             [
-                'name' => 'Manage Users',
+                'name' => 'manage-users',
                 'slug' => 'manage-users',
                 'description' => 'Create, edit, and remove user accounts.',
             ],
             [
-                'name' => 'Manage Roles',
+                'name' => 'manage-roles',
                 'slug' => 'manage-roles',
                 'description' => 'Create, edit, and assign role permissions.',
             ],
             [
-                'name' => 'Manage Settings',
+                'name' => 'manage-settings',
                 'slug' => 'manage-settings',
                 'description' => 'Manage privileged settings and preferences.',
             ],
@@ -40,11 +43,18 @@ class AccessControlSeeder extends Seeder
         foreach ($permissionPayloads as $permissionPayload) {
             Permission::query()->updateOrCreate(
                 ['slug' => $permissionPayload['slug']],
-                $permissionPayload,
+                [
+                    'name' => $permissionPayload['name'],
+                    'guard_name' => 'web',
+                    'description' => $permissionPayload['description'],
+                ],
             );
         }
 
-        $permissionsBySlug = Permission::query()->get()->keyBy('slug');
+        $permissionsBySlug = Permission::query()
+            ->whereIn('slug', collect($permissionPayloads)->pluck('slug')->all())
+            ->get()
+            ->keyBy('slug');
 
         $roles = [
             [
@@ -75,18 +85,18 @@ class AccessControlSeeder extends Seeder
                 ['slug' => $rolePayload['slug']],
                 [
                     'name' => $rolePayload['name'],
+                    'guard_name' => 'web',
                     'description' => $rolePayload['description'],
                     'is_system' => $rolePayload['is_system'],
                 ],
             );
 
-            $permissionIds = collect($rolePayload['permission_slugs'])
-                ->map(fn (string $permissionSlug): ?int => $permissionsBySlug->get($permissionSlug)?->id)
+            $permissions = collect($rolePayload['permission_slugs'])
+                ->map(fn (string $permissionSlug): ?Permission => $permissionsBySlug->get($permissionSlug))
                 ->filter()
-                ->values()
-                ->all();
+                ->values();
 
-            $role->permissions()->sync($permissionIds);
+            $role->syncPermissions($permissions);
         }
 
         $superAdminRole = Role::query()->where('slug', 'super-admin')->first();
@@ -96,8 +106,7 @@ class AccessControlSeeder extends Seeder
             User::query()
                 ->oldest('id')
                 ->first()
-                ?->roles()
-                ->syncWithoutDetaching([$superAdminRole->id]);
+                ?->assignRole($superAdminRole);
         }
 
         if ($analystRole !== null) {
@@ -105,8 +114,10 @@ class AccessControlSeeder extends Seeder
                 ->whereDoesntHave('roles')
                 ->get()
                 ->each(function (User $user) use ($analystRole): void {
-                    $user->roles()->syncWithoutDetaching([$analystRole->id]);
+                    $user->assignRole($analystRole);
                 });
         }
+
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 }

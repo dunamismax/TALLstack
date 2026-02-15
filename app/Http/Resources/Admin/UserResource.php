@@ -2,9 +2,11 @@
 
 namespace App\Http\Resources\Admin;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
+/** @mixin \App\Models\User */
 class UserResource extends JsonResource
 {
     /**
@@ -22,7 +24,13 @@ class UserResource extends JsonResource
             'roles' => RoleResource::collection($this->whenLoaded('roles')),
             'permission_slugs' => $this->whenLoaded('roles', function (): array {
                 return $this->roles
-                    ->flatMap(fn ($role) => $role->permissions->pluck('slug'))
+                    ->flatMap(function (Model $role): array {
+                        if (! $role instanceof \App\Models\Role) {
+                            return [];
+                        }
+
+                        return $role->permissions->pluck('slug')->all();
+                    })
                     ->unique()
                     ->values()
                     ->all();

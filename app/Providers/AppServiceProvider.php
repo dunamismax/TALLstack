@@ -63,39 +63,27 @@ class AppServiceProvider extends ServiceProvider
      */
     protected function configureAuthorization(): void
     {
+        if (! $this->hasAccessControlTables()) {
+            return;
+        }
+
         Gate::before(function (User $user): ?bool {
-            if ($user->hasRole('super-admin')) {
+            if ($user->roles()->where('slug', 'super-admin')->exists()) {
                 return true;
             }
 
             return null;
         });
 
-        $corePermissionAbilities = ['view-dashboard', 'manage-users', 'manage-roles', 'manage-settings'];
+        Gate::define('viewPulse', fn (User $user): bool => $user->can('manage-settings'));
+    }
 
-        $hasAccessControlTables = static function (): bool {
-            static $tablesAvailable = false;
-
-            if ($tablesAvailable) {
-                return true;
-            }
-
-            $tablesAvailable = Schema::hasTable('permissions')
-                && Schema::hasTable('role_user')
-                && Schema::hasTable('permission_role');
-
-            return $tablesAvailable;
-        };
-
-        foreach ($corePermissionAbilities as $permissionSlug) {
-            Gate::define($permissionSlug, function (User $user) use ($permissionSlug, $hasAccessControlTables): bool {
-                if (! $hasAccessControlTables()) {
-                    return false;
-                }
-
-                return $user->hasPermission($permissionSlug);
-            });
-        }
+    protected function hasAccessControlTables(): bool
+    {
+        return Schema::hasTable('permissions')
+            && Schema::hasTable('roles')
+            && Schema::hasTable('model_has_roles')
+            && Schema::hasTable('role_has_permissions');
     }
 
     /**

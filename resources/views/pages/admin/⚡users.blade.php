@@ -2,6 +2,7 @@
 
 use App\Models\Role;
 use App\Models\User;
+use App\Jobs\SendWelcomeNotification;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
@@ -139,6 +140,8 @@ new class extends Component {
                 'email' => $validated['email'],
                 'password' => $validated['password'],
             ]);
+
+            SendWelcomeNotification::dispatch($user->id);
         } else {
             $user = User::query()->findOrFail($this->editingUserId);
 
@@ -154,7 +157,7 @@ new class extends Component {
             $user->save();
         }
 
-        $user->roles()->sync($validated['selectedRoleIds']);
+        $user->syncRoles($validated['selectedRoleIds']);
 
         $this->showUserModal = false;
     }
@@ -180,7 +183,7 @@ new class extends Component {
 
         Gate::authorize('delete', $user);
 
-        $user->roles()->detach();
+        $user->syncRoles([]);
         $user->delete();
 
         $this->deletingUserId = null;

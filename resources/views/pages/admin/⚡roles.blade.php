@@ -123,6 +123,7 @@ new class extends Component {
 
             $role = Role::query()->create([
                 'name' => $validated['name'],
+                'guard_name' => 'web',
                 'slug' => $validated['slug'],
                 'description' => $validated['description'] ?: null,
                 'is_system' => false,
@@ -138,7 +139,7 @@ new class extends Component {
             $role->save();
         }
 
-        $role->permissions()->sync($validated['selectedPermissionIds']);
+        $role->syncPermissions($validated['selectedPermissionIds']);
 
         $this->showRoleModal = false;
     }
@@ -164,8 +165,7 @@ new class extends Component {
 
         Gate::authorize('delete', $role);
 
-        $role->users()->detach();
-        $role->permissions()->detach();
+        $role->syncPermissions([]);
         $role->delete();
 
         $this->deletingRoleId = null;

@@ -3,13 +3,14 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Spatie\Permission\Models\Role as SpatieRole;
 
-class Role extends Model
+class Role extends SpatieRole
 {
     /** @use HasFactory<\Database\Factories\RoleFactory> */
     use HasFactory;
+
+    protected string $guard_name = 'web';
 
     /**
      * The attributes that are mass assignable.
@@ -18,6 +19,7 @@ class Role extends Model
      */
     protected $fillable = [
         'name',
+        'guard_name',
         'slug',
         'description',
         'is_system',
@@ -33,33 +35,5 @@ class Role extends Model
         return [
             'is_system' => 'boolean',
         ];
-    }
-
-    /**
-     * Get users that belong to the role.
-     */
-    public function users(): BelongsToMany
-    {
-        return $this->belongsToMany(User::class);
-    }
-
-    /**
-     * Get permissions assigned to the role.
-     */
-    public function permissions(): BelongsToMany
-    {
-        return $this->belongsToMany(Permission::class);
-    }
-
-    /**
-     * Determine if the role has a permission slug.
-     */
-    public function hasPermission(string $permissionSlug): bool
-    {
-        if ($this->relationLoaded('permissions')) {
-            return $this->permissions->contains(fn (Permission $permission): bool => $permission->slug === $permissionSlug);
-        }
-
-        return $this->permissions()->where('slug', $permissionSlug)->exists();
     }
 }

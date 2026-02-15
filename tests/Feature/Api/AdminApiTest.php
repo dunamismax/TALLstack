@@ -1,18 +1,20 @@
 <?php
 
+use App\Jobs\SendWelcomeNotification;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
 use Database\Seeders\AccessControlSeeder;
+use Illuminate\Support\Facades\Queue;
 
 function createApiUserWithRole(string $roleSlug): User
 {
     $user = User::factory()->create();
     $role = Role::query()->where('slug', $roleSlug)->firstOrFail();
 
-    $user->roles()->sync([$role->id]);
+    $user->syncRoles([$role->id]);
 
-    return $user;
+    return $user->fresh();
 }
 
 test('admin api blocks users without permissions', function () {
@@ -44,6 +46,8 @@ test('admin api validation errors are consistent json responses', function () {
 
     $admin = createApiUserWithRole('admin');
 
+    expect($admin->can('manage-users'))->toBeTrue();
+
     $response = $this->actingAs($admin)
         ->post('/api/v1/admin/users', []);
 
@@ -54,9 +58,12 @@ test('admin api validation errors are consistent json responses', function () {
 
 test('admin api supports user lifecycle for authorized admins', function () {
     $this->seed(AccessControlSeeder::class);
+    Queue::fake();
 
     $admin = createApiUserWithRole('admin');
     $analystRole = Role::query()->where('slug', 'analyst')->firstOrFail();
+
+    expect($admin->can('manage-users'))->toBeTrue();
 
     $createResponse = $this->actingAs($admin)
         ->postJson('/api/v1/admin/users', [
@@ -69,6 +76,8 @@ test('admin api supports user lifecycle for authorized admins', function () {
     $createResponse
         ->assertCreated()
         ->assertJsonPath('data.email', 'template.user@example.com');
+
+    Queue::assertPushed(SendWelcomeNotification::class, 1);
 
     $createdUserId = (int) $createResponse->json('data.id');
 
@@ -97,6 +106,8 @@ test('admin api supports role creation for authorized admins', function () {
     $admin = createApiUserWithRole('admin');
     $permissionIds = Permission::query()->whereIn('slug', ['view-dashboard', 'manage-users'])->pluck('id')->all();
 
+    expect($admin->can('manage-roles'))->toBeTrue();
+
     $response = $this->actingAs($admin)
         ->postJson('/api/v1/admin/roles', [
             'name' => 'Support Admin',
@@ -113,12 +124,23 @@ test('admin api supports role creation for authorized admins', function () {
         'slug' => 'support-admin',
         'name' => 'Support Admin',
     ]);
+
+    $createdRoleId = (int) $response->json('data.id');
+
+    foreach ($permissionIds as $permissionId) {
+        $this->assertDatabaseHas('role_has_permissions', [
+            'role_id' => $createdRoleId,
+            'permission_id' => $permissionId,
+        ]);
+    }
 });
 
 test('admin api enforces request throttling for repeated traffic', function () {
     $this->seed(AccessControlSeeder::class);
 
     $admin = createApiUserWithRole('admin');
+
+    expect($admin->can('manage-users'))->toBeTrue();
 
     for ($attempt = 0; $attempt < 60; $attempt++) {
         $this->actingAs($admin)

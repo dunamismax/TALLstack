@@ -50,12 +50,13 @@ class RoleController extends Controller
 
         $role = Role::query()->create([
             'name' => $validated['name'],
+            'guard_name' => 'web',
             'slug' => $validated['slug'],
             'description' => $validated['description'] ?? null,
             'is_system' => false,
         ]);
 
-        $role->permissions()->sync($validated['permission_ids']);
+        $role->syncPermissions($validated['permission_ids']);
         $role->load(['permissions'])->loadCount('users');
 
         return (new RoleResource($role))
@@ -86,7 +87,7 @@ class RoleController extends Controller
         $role->save();
 
         if (array_key_exists('permission_ids', $validated)) {
-            $role->permissions()->sync($validated['permission_ids']);
+            $role->syncPermissions($validated['permission_ids']);
         }
 
         $role->load('permissions')->loadCount('users');
@@ -99,8 +100,7 @@ class RoleController extends Controller
      */
     public function destroy(Role $role): Response
     {
-        $role->users()->detach();
-        $role->permissions()->detach();
+        $role->syncPermissions([]);
         $role->delete();
 
         return response()->noContent();

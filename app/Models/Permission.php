@@ -3,13 +3,14 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Spatie\Permission\Models\Permission as SpatiePermission;
 
-class Permission extends Model
+class Permission extends SpatiePermission
 {
     /** @use HasFactory<\Database\Factories\PermissionFactory> */
     use HasFactory;
+
+    protected string $guard_name = 'web';
 
     /**
      * The attributes that are mass assignable.
@@ -18,15 +19,8 @@ class Permission extends Model
      */
     protected $fillable = [
         'name',
+        'guard_name',
         'slug',
         'description',
     ];
-
-    /**
-     * Get roles that include the permission.
-     */
-    public function roles(): BelongsToMany
-    {
-        return $this->belongsToMany(Role::class);
-    }
 }

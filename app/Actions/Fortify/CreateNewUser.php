@@ -4,6 +4,7 @@ namespace App\Actions\Fortify;
 
 use App\Concerns\PasswordValidationRules;
 use App\Concerns\ProfileValidationRules;
+use App\Jobs\SendWelcomeNotification;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Support\Facades\Validator;
@@ -34,8 +35,10 @@ class CreateNewUser implements CreatesNewUsers
         $defaultRole = Role::query()->where('slug', 'analyst')->first();
 
         if ($defaultRole !== null) {
-            $user->roles()->syncWithoutDetaching([$defaultRole->id]);
+            $user->assignRole($defaultRole);
         }
+
+        SendWelcomeNotification::dispatch($user->id);
 
         return $user;
     }

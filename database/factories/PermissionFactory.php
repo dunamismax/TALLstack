@@ -21,6 +21,7 @@ class PermissionFactory extends Factory
 
         return [
             'name' => $name,
+            'guard_name' => 'web',
             'slug' => Str::slug($name),
             'description' => fake()->sentence(),
         ];

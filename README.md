@@ -3,12 +3,12 @@
 </p>
 
 <p align="center">
-  A production-ready Laravel + Livewire admin dashboard template with RBAC, API endpoints, and modern UI primitives.
+  A production-ready Laravel + Livewire admin dashboard template with Spatie RBAC, API endpoints, and modern UI primitives.
 </p>
 
 # TALLstack Admin Template
 
-TALLstack is a reusable admin dashboard starter for Laravel teams that want server-driven interactivity without a heavy frontend SPA. It ships with authentication, role and permission management, Livewire-powered admin pages, and a versioned admin API so you can move from prototype to production faster.
+TALLstack is a reusable admin dashboard starter for Laravel teams that want server-driven interactivity without a heavy frontend SPA. It ships with authentication, Spatie-powered role and permission management, Livewire-powered admin pages, monitoring dashboards, and a versioned admin API so you can move from prototype to production faster.
 
 ## Trust Signals
 
@@ -60,26 +60,31 @@ Default seeded account:
 ## Features
 
 - Fortify-backed authentication with registration, login, password reset, email verification, and 2FA settings.
-- Role-based access control with `roles`, `permissions`, policy checks, and permission middleware.
+- Role-based access control powered by `spatie/laravel-permission` with persisted `roles` and `permissions`.
 - Livewire + Flux admin pages for dashboard analytics, user CRUD, and role/permission management.
 - Versioned admin API under `/api/v1/admin` with request validation, resources, and authorization.
 - Session-authenticated API access using Laravel `web` + `auth:web` + `verified` middleware.
 - API route throttling via `throttle:admin-api` with per-user and per-IP limits.
 - Consistent JSON API error responses (auth, validation, and exceptions), including clients that do not send JSON accept headers.
-- CI workflows for testing and linting via Pest and Pint.
+- Queued application workflow via `SendWelcomeNotification` job dispatched on user creation.
+- Monitoring and diagnostics via Laravel Telescope (`/telescope`), Laravel Pulse (`/pulse`), and Laravel Pail.
+- Static analysis with Larastan (`composer analyse`) and CI checks via Pest and Pint.
 
 ## Tech Stack
 
 | Layer | Technology | Purpose |
 |---|---|---|
 | Backend | [Laravel 12](https://laravel.com/docs/12.x) | Core framework, routing, auth, authorization, validation, queues |
+| Authorization | [Spatie Laravel Permission](https://spatie.be/docs/laravel-permission/v7/introduction) | Granular role and permission based access control |
 | Auth | [Laravel Fortify](https://laravel.com/docs/12.x/fortify) | Headless auth endpoints and security features |
 | UI Engine | [Livewire 4](https://livewire.laravel.com/docs/4.x) | Reactive server-driven components and full-page routes |
 | UI Components | [Flux UI 2](https://fluxui.dev/) | Accessible, reusable UI primitives for forms, tables, modals |
 | Styling | [Tailwind CSS 4](https://tailwindcss.com/) | Utility-first styling and theme tokens |
 | Data | SQLite (default) / Laravel Eloquent ORM | Relational data with model relationships and policies |
 | Testing | [Pest 4](https://pestphp.com/) + PHPUnit 12 | Feature coverage for auth, admin pages, and API behavior |
-| Tooling | Vite 7, Laravel Pint, Laravel Pail | Asset pipeline, formatting, and log tailing |
+| Static Analysis | [Larastan](https://github.com/larastan/larastan) | Type-aware static analysis for Laravel code |
+| Debugging | [Laravel Telescope](https://laravel.com/docs/12.x/telescope), [Laravel Pulse](https://laravel.com/docs/12.x/pulse), [Laravel Pail](https://laravel.com/docs/12.x/logging#tailing-log-messages-using-pail) | Request/exception/query inspection, app metrics, and real-time logs |
+| Tooling | Vite 7, Laravel Pint | Asset pipeline and formatting |
 
 ## Project Structure
 
@@ -91,11 +96,17 @@ TALLstack/
 │   │   ├── Middleware/                   # Permission middleware alias target
 │   │   ├── Requests/Api/                 # API request base + admin request validation
 │   │   └── Resources/Admin/              # API resource transformers
-│   ├── Models/                           # User, Role, Permission models + relationships
+│   ├── Jobs/                             # Queued application jobs
+│   ├── Models/                           # User, Role, Permission models (Spatie-integrated)
+│   ├── Notifications/                    # App notifications (queued through jobs)
 │   ├── Policies/                         # User and Role authorization policies
-│   └── Providers/                        # Gate definitions and app boot configuration
+│   └── Providers/                        # App boot config + Fortify + Telescope providers
+├── config/
+│   ├── permission.php                    # Spatie RBAC configuration
+│   ├── pulse.php                         # Pulse dashboard/recorders config
+│   └── telescope.php                     # Telescope watchers and storage config
 ├── database/
-│   ├── migrations/                       # Core auth + RBAC schema
+│   ├── migrations/                       # Core auth + RBAC + Telescope + Pulse schema
 │   ├── factories/                        # User/Role/Permission factories
 │   └── seeders/                          # Idempotent default data + RBAC seeding
 ├── resources/views/
@@ -141,6 +152,7 @@ php artisan test --compact tests/Feature/Api/AdminApiTest.php
 
 ```bash
 composer lint
+composer analyse
 vendor/bin/pint --dirty --format agent
 ```
 
@@ -162,11 +174,6 @@ php artisan route:cache
 php artisan view:cache
 ```
 
-Command verification notes for this documentation pass:
-
-- Verified in this environment: `vendor/bin/pint --dirty --format agent`, `php artisan test --compact tests/Feature/Api/AdminApiTest.php`, `php artisan test --compact`.
-- Not executed in this pass: `composer setup`, `composer dev`, `npm run dev`, full deploy command block.
-
 ## Deployment and Operations
 
 This repository does not ship provider-specific deployment manifests. Use your platform of choice and apply the same Laravel release flow consistently.
@@ -175,6 +182,9 @@ This repository does not ship provider-specific deployment manifests. Use your p
 - Health check endpoint: `GET /up` (configured in `bootstrap/app.php`).
 - Logs: use `php artisan pail` for local/hosted log tailing.
 - Queues: `php artisan queue:work` (or your supervisor process) for async jobs.
+- Telescope dashboard: `/telescope` (in non-local environments, access is restricted to users that can `manage-settings`).
+- Pulse dashboard: `/pulse` (in non-local environments, access is restricted to users that can `manage-settings`).
+- Pulse recorders daemon: run `php artisan pulse:check` as a supervised long-running process.
 - Rollback baseline: `php artisan migrate:rollback --step=1` and redeploy previous artifact.
 
 ## Security and Reliability Notes
@@ -183,11 +193,11 @@ This repository does not ship provider-specific deployment manifests. Use your p
 - Admin web routes require both `auth` and `verified` middleware.
 - Admin APIs are session-authenticated and require `verified`, `throttle:admin-api`, and permission middleware.
 - API exceptions are forced to JSON for all `/api/*` requests via `bootstrap/app.php`.
-- Authorization uses policies and gate checks backed by persisted role/permission relationships.
+- Authorization uses policies and Spatie-backed role/permission checks.
 - Input validation is enforced with dedicated Form Request classes for admin API writes (`ApiRequest` base ensures JSON validation responses).
 - Passwords are stored with Laravel's hashed cast on `User::$casts`.
 - CSRF protection and secure session middleware are applied through Laravel's web stack.
-- Reliability guardrails include Pest feature tests and CI workflows in `.github/workflows/tests.yml` and `.github/workflows/lint.yml`.
+- Reliability guardrails include Pest feature tests, Larastan static analysis, and CI workflows in `.github/workflows/tests.yml` and `.github/workflows/lint.yml`.
 
 ## Documentation
 
@@ -197,10 +207,12 @@ This repository does not ship provider-specific deployment manifests. Use your p
 | [routes/web.php](routes/web.php) | Authenticated web routes and Livewire admin pages |
 | [routes/api.php](routes/api.php) | Versioned admin API route definitions |
 | [bootstrap/app.php](bootstrap/app.php) | Middleware aliases and API exception JSON rendering strategy |
-| [app/Providers/AppServiceProvider.php](app/Providers/AppServiceProvider.php) | Permission gate registration, super-admin bypass, and API route rate limiters |
+| [app/Providers/AppServiceProvider.php](app/Providers/AppServiceProvider.php) | Authorization bootstrapping and API route rate limiters |
+| [app/Providers/TelescopeServiceProvider.php](app/Providers/TelescopeServiceProvider.php) | Telescope filter and dashboard authorization gate |
 | [app/Http/Requests/Api/ApiRequest.php](app/Http/Requests/Api/ApiRequest.php) | Shared API Form Request behavior for consistent JSON validation responses |
-| [app/Models/User.php](app/Models/User.php) | User auth model and RBAC helper methods |
+| [app/Models/User.php](app/Models/User.php) | User auth model with Spatie `HasRoles` integration |
 | [database/seeders/AccessControlSeeder.php](database/seeders/AccessControlSeeder.php) | Default roles, permissions, and role assignment seeding |
+| [app/Jobs/SendWelcomeNotification.php](app/Jobs/SendWelcomeNotification.php) | Example production queue workflow |
 | [tests/Feature/Admin/AdminPagesTest.php](tests/Feature/Admin/AdminPagesTest.php) | Admin page authorization coverage |
 | [tests/Feature/Api/AdminApiTest.php](tests/Feature/Api/AdminApiTest.php) | Admin API authorization and CRUD coverage |
 | [.github/workflows/tests.yml](.github/workflows/tests.yml) | CI test workflow |

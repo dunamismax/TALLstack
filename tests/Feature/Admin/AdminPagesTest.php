@@ -9,9 +9,9 @@ function createUserWithRole(string $roleSlug): User
     $user = User::factory()->create();
     $role = Role::query()->where('slug', $roleSlug)->firstOrFail();
 
-    $user->roles()->sync([$role->id]);
+    $user->syncRoles([$role->id]);
 
-    return $user;
+    return $user->fresh();
 }
 
 test('guests are redirected when visiting admin pages', function () {
@@ -37,6 +37,16 @@ test('users with admin role can access admin pages', function () {
     $this->seed(AccessControlSeeder::class);
 
     $admin = createUserWithRole('admin');
+    $adminRole = $admin->roles()->where('slug', 'admin')->firstOrFail();
+
+    expect($admin->can('manage-users'))->toBeTrue();
+    expect($admin->can('manage-roles'))->toBeTrue();
+
+    $this->assertDatabaseHas('model_has_roles', [
+        'role_id' => $adminRole->id,
+        'model_id' => $admin->id,
+        'model_type' => User::class,
+    ]);
 
     $this->actingAs($admin)
         ->get(route('admin.users'))

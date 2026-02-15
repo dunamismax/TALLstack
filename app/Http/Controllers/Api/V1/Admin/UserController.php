@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Admin\StoreUserRequest;
 use App\Http\Requests\Api\Admin\UpdateUserRequest;
 use App\Http\Resources\Admin\UserResource;
+use App\Jobs\SendWelcomeNotification;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -63,8 +64,10 @@ class UserController extends Controller
             'password' => $validated['password'],
         ]);
 
-        $user->roles()->sync($validated['role_ids']);
+        $user->syncRoles($validated['role_ids']);
         $user->load(['roles.permissions']);
+
+        SendWelcomeNotification::dispatch($user->id);
 
         return (new UserResource($user))
             ->response()
@@ -98,7 +101,7 @@ class UserController extends Controller
         $user->save();
 
         if (array_key_exists('role_ids', $validated)) {
-            $user->roles()->sync($validated['role_ids']);
+            $user->syncRoles($validated['role_ids']);
         }
 
         $user->load(['roles.permissions']);
@@ -111,7 +114,7 @@ class UserController extends Controller
      */
     public function destroy(User $user): Response
     {
-        $user->roles()->detach();
+        $user->syncRoles([]);
         $user->delete();
 
         return response()->noContent();
