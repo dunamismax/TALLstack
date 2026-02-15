@@ -1,19 +1,13 @@
 <?php
 
 use App\Providers\AppServiceProvider;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
-test('it safely skips access control checks when sqlite database file is missing', function (): void {
-    $originalDatabase = config('database.connections.sqlite.database');
-    $missingDatabasePath = base_path('database/missing-access-control.sqlite');
-
-    if (file_exists($missingDatabasePath)) {
-        unlink($missingDatabasePath);
-    }
-
-    config()->set('database.default', 'sqlite');
-    config()->set('database.connections.sqlite.database', $missingDatabasePath);
-    DB::purge('sqlite');
+test('it safely skips access control checks when schema inspection fails', function (): void {
+    Schema::shouldReceive('hasTable')
+        ->once()
+        ->with('permissions')
+        ->andThrow(new \RuntimeException('Database unavailable'));
 
     $provider = new class(app()) extends AppServiceProvider
     {
@@ -24,7 +18,4 @@ test('it safely skips access control checks when sqlite database file is missing
     };
 
     expect($provider->accessControlTablesExist())->toBeFalse();
-
-    config()->set('database.connections.sqlite.database', $originalDatabase);
-    DB::purge('sqlite');
 });
