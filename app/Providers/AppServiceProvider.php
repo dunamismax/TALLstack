@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -80,10 +81,14 @@ class AppServiceProvider extends ServiceProvider
 
     protected function hasAccessControlTables(): bool
     {
-        return Schema::hasTable('permissions')
-            && Schema::hasTable('roles')
-            && Schema::hasTable('model_has_roles')
-            && Schema::hasTable('role_has_permissions');
+        try {
+            return Schema::hasTable('permissions')
+                && Schema::hasTable('roles')
+                && Schema::hasTable('model_has_roles')
+                && Schema::hasTable('role_has_permissions');
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     /**
