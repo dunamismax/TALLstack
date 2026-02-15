@@ -24,7 +24,7 @@ TALLstack is a reusable admin dashboard starter for Laravel teams that want serv
 
 - PHP `8.2+` (project and CI are running on PHP `8.4`/`8.5`)
 - Composer `2+`
-- Node.js `22+` and npm
+- Bun `1.1+`
 - SQLite (default local database)
 
 ### Run
@@ -36,7 +36,7 @@ cp .env.example .env
 touch database/database.sqlite
 composer setup
 php artisan migrate --seed --no-interaction
-composer dev
+bun run dev
 ```
 
 Expected result:
@@ -137,7 +137,7 @@ php artisan migrate --seed --no-interaction
 ### Run
 
 ```bash
-composer dev
+bun run dev
 ```
 
 ### Test
@@ -159,16 +159,16 @@ vendor/bin/pint --dirty --format agent
 ### Build
 
 ```bash
-npm run build
+bun run build
 ```
 
 ### Deploy (Generic Flow)
 
 ```bash
-npm ci
+bun install --frozen-lockfile
 composer install --no-dev --optimize-autoloader
 php artisan migrate --force --no-interaction
-npm run build
+bun run build
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
@@ -178,7 +178,7 @@ php artisan view:cache
 
 This repository does not ship provider-specific deployment manifests. Use your platform of choice and apply the same Laravel release flow consistently.
 
-- Build and migrate during deployment: run `npm run build` and `php artisan migrate --force` before switching traffic.
+- Build and migrate during deployment: run `bun run build` and `php artisan migrate --force` before switching traffic.
 - Health check endpoint: `GET /up` (configured in `bootstrap/app.php`).
 - Logs: use `php artisan pail` for local/hosted log tailing.
 - Queues: `php artisan queue:work` (or your supervisor process) for async jobs.

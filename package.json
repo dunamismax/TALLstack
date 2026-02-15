@@ -4,7 +4,11 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#34d399\" \"bun run dev:server\" \"bun run dev:queue\" \"bun run dev:logs\" \"bun run dev:vite\" --names=server,queue,logs,vite --kill-others",
+        "dev:server": "php artisan serve",
+        "dev:queue": "php artisan queue:listen --tries=1 --timeout=0",
+        "dev:logs": "php artisan pail --timeout=0",
+        "dev:vite": "vite"
     },
     "dependencies": {
         "@tailwindcss/vite": "^4.1.11",
