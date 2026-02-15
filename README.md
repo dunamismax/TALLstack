@@ -55,6 +55,7 @@ Default seeded account:
 
 - Email: `test@example.com`
 - Password: `password`
+- Role: `super-admin`
 
 ## Features
 
@@ -62,7 +63,9 @@ Default seeded account:
 - Role-based access control with `roles`, `permissions`, policy checks, and permission middleware.
 - Livewire + Flux admin pages for dashboard analytics, user CRUD, and role/permission management.
 - Versioned admin API under `/api/v1/admin` with request validation, resources, and authorization.
-- Session-authenticated API access using Laravel `web` + `auth` + `verified` middleware.
+- Session-authenticated API access using Laravel `web` + `auth:web` + `verified` middleware.
+- API route throttling via `throttle:admin-api` with per-user and per-IP limits.
+- Consistent JSON API error responses (auth, validation, and exceptions), including clients that do not send JSON accept headers.
 - CI workflows for testing and linting via Pest and Pint.
 
 ## Tech Stack
@@ -86,7 +89,7 @@ TALLstack/
 │   ├── Http/
 │   │   ├── Controllers/Api/V1/Admin/    # Admin API controllers
 │   │   ├── Middleware/                   # Permission middleware alias target
-│   │   ├── Requests/Api/Admin/           # API form requests and validation
+│   │   ├── Requests/Api/                 # API request base + admin request validation
 │   │   └── Resources/Admin/              # API resource transformers
 │   ├── Models/                           # User, Role, Permission models + relationships
 │   ├── Policies/                         # User and Role authorization policies
@@ -159,10 +162,10 @@ php artisan route:cache
 php artisan view:cache
 ```
 
-Command verification notes for this README rewrite:
+Command verification notes for this documentation pass:
 
-- Verified in this environment: `php artisan migrate:fresh --seed --no-interaction`, `php artisan test --compact tests/Feature/Auth/RegistrationTest.php tests/Feature/Auth/AuthenticationTest.php tests/Feature/DashboardTest.php tests/Feature/Admin/AdminPagesTest.php tests/Feature/Api/AdminApiTest.php`, `vendor/bin/pint --dirty --format agent`, `php artisan test --compact tests/Feature/Admin/AdminPagesTest.php tests/Feature/Api/AdminApiTest.php`.
-- Not executed in this rewrite: `composer setup`, `composer dev`, `npm run dev`, full deploy command block.
+- Verified in this environment: `vendor/bin/pint --dirty --format agent`, `php artisan test --compact tests/Feature/Api/AdminApiTest.php`, `php artisan test --compact`.
+- Not executed in this pass: `composer setup`, `composer dev`, `npm run dev`, full deploy command block.
 
 ## Deployment and Operations
 
@@ -176,11 +179,12 @@ This repository does not ship provider-specific deployment manifests. Use your p
 
 ## Security and Reliability Notes
 
-- Authentication is handled by Fortify and Laravel session auth (`auth` middleware).
+- Authentication is handled by Fortify and Laravel session auth (`auth:web` middleware on admin API routes).
 - Admin web routes require both `auth` and `verified` middleware.
-- Admin APIs are session-authenticated and also require `verified` plus permission middleware.
+- Admin APIs are session-authenticated and require `verified`, `throttle:admin-api`, and permission middleware.
+- API exceptions are forced to JSON for all `/api/*` requests via `bootstrap/app.php`.
 - Authorization uses policies and gate checks backed by persisted role/permission relationships.
-- Input validation is enforced with dedicated Form Request classes for admin API writes.
+- Input validation is enforced with dedicated Form Request classes for admin API writes (`ApiRequest` base ensures JSON validation responses).
 - Passwords are stored with Laravel's hashed cast on `User::$casts`.
 - CSRF protection and secure session middleware are applied through Laravel's web stack.
 - Reliability guardrails include Pest feature tests and CI workflows in `.github/workflows/tests.yml` and `.github/workflows/lint.yml`.
@@ -192,7 +196,9 @@ This repository does not ship provider-specific deployment manifests. Use your p
 | [AGENTS.md](AGENTS.md) | Workspace and project-specific coding/agent guidelines |
 | [routes/web.php](routes/web.php) | Authenticated web routes and Livewire admin pages |
 | [routes/api.php](routes/api.php) | Versioned admin API route definitions |
-| [app/Providers/AppServiceProvider.php](app/Providers/AppServiceProvider.php) | Permission gate registration and super-admin bypass |
+| [bootstrap/app.php](bootstrap/app.php) | Middleware aliases and API exception JSON rendering strategy |
+| [app/Providers/AppServiceProvider.php](app/Providers/AppServiceProvider.php) | Permission gate registration, super-admin bypass, and API route rate limiters |
+| [app/Http/Requests/Api/ApiRequest.php](app/Http/Requests/Api/ApiRequest.php) | Shared API Form Request behavior for consistent JSON validation responses |
 | [app/Models/User.php](app/Models/User.php) | User auth model and RBAC helper methods |
 | [database/seeders/AccessControlSeeder.php](database/seeders/AccessControlSeeder.php) | Default roles, permissions, and role assignment seeding |
 | [tests/Feature/Admin/AdminPagesTest.php](tests/Feature/Admin/AdminPagesTest.php) | Admin page authorization coverage |
