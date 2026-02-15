@@ -9,6 +9,15 @@ test('profile page is displayed', function () {
     $this->get(route('profile.edit'))->assertOk();
 });
 
+test('profile page shows delete account action for authenticated users', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user);
+
+    Livewire::test('pages::settings.profile')
+        ->assertSee('Delete account');
+});
+
 test('profile information can be updated', function () {
     $user = User::factory()->create();
 

@@ -9,7 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['web', 'auth', 'verified'])
+Route::middleware(['web', 'auth:web', 'verified', 'throttle:admin-api'])
     ->prefix('v1/admin')
     ->name('api.v1.admin.')
     ->group(function (): void {

@@ -2,13 +2,13 @@
 
 namespace App\Http\Requests\Api\Admin;
 
+use App\Http\Requests\Api\ApiRequest;
 use App\Models\Role;
 use App\Models\User;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
-class UpdateUserRequest extends FormRequest
+class UpdateUserRequest extends ApiRequest
 {
     /**
      * Determine if the user is authorized to make this request.

@@ -29,6 +29,29 @@ test('admin api blocks users without permissions', function () {
         ->assertForbidden();
 });
 
+test('admin api returns json when unauthenticated without explicit json headers', function () {
+    $response = $this->get('/api/v1/admin/users');
+
+    $response
+        ->assertUnauthorized()
+        ->assertJsonPath('message', 'Unauthenticated.');
+
+    expect((string) $response->headers->get('content-type'))->toContain('application/json');
+});
+
+test('admin api validation errors are consistent json responses', function () {
+    $this->seed(AccessControlSeeder::class);
+
+    $admin = createApiUserWithRole('admin');
+
+    $response = $this->actingAs($admin)
+        ->post('/api/v1/admin/users', []);
+
+    $response
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['name', 'email', 'password', 'role_ids']);
+});
+
 test('admin api supports user lifecycle for authorized admins', function () {
     $this->seed(AccessControlSeeder::class);
 
@@ -90,4 +113,21 @@ test('admin api supports role creation for authorized admins', function () {
         'slug' => 'support-admin',
         'name' => 'Support Admin',
     ]);
+});
+
+test('admin api enforces request throttling for repeated traffic', function () {
+    $this->seed(AccessControlSeeder::class);
+
+    $admin = createApiUserWithRole('admin');
+
+    for ($attempt = 0; $attempt < 60; $attempt++) {
+        $this->actingAs($admin)
+            ->getJson('/api/v1/admin/users')
+            ->assertSuccessful();
+    }
+
+    $this->actingAs($admin)
+        ->getJson('/api/v1/admin/users')
+        ->assertStatus(429)
+        ->assertJsonPath('message', 'Too many requests. Please retry in a minute.');
 });
